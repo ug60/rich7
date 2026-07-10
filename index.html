@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>카카오톡 뉴스 아카이브</title>
+    <style>
+        :root { --primary-color: #1f2937; --bg-color: #f3f4f6; --table-border: #e5e7eb; --text-main: #111827; --text-muted: #6b7280; --accent: #2563eb; }
+        html { scroll-behavior: smooth; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 1200px; background: #ffffff; padding: 30px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; }
+        
+        h1 { color: var(--primary-color); font-size: 24px; margin: 0 0 10px 0; }
+        .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 25px; border-bottom: 1px solid var(--table-border); padding-bottom: 20px; line-height: 1.5; }
+        
+        /* 버튼 영역 가로 스크롤 가능하도록 수정 */
+        .nav-buttons { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 8px; margin-bottom: 20px; padding-bottom: 10px; -webkit-overflow-scrolling: touch; }
+        .nav-buttons::-webkit-scrollbar { height: 6px; }
+        .nav-buttons::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        
+        .nav-btn { flex: 0 0 auto; background-color: #ffffff; color: var(--primary-color); border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .nav-btn.active { background-color: var(--primary-color); color: #ffffff; border-color: var(--primary-color); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        
+        .keyword-banner { background-color: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; padding: 16px; border-radius: 12px; margin-bottom: 25px; display: none; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .keyword-label { background-color: var(--accent); color: white; padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: bold; white-space: nowrap; }
+        .keyword-text { font-weight: 600; font-size: 15px; line-height: 1.4; word-break: keep-all; }
+
+        /* 데스크탑 기본 테이블 셋팅 */
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th { background-color: #f9fafb; color: var(--text-muted); font-weight: 600; padding: 14px 10px; font-size: 14px; border-bottom: 2px solid var(--table-border); position: sticky; top: 0; z-index: 10; text-align: center; }
+        td { padding: 16px 10px; border-bottom: 1px solid var(--table-border); font-size: 14px; vertical-align: middle; }
+        tr.date-divider td { border-top: 3px solid #cbd5e1; }
+        
+        .center { text-align: center; } 
+        .font-bold { font-weight: 600; }
+        .title-cell { font-weight: 500; line-height: 1.5; color: #1e293b; word-break: keep-all; }
+        .badge { background-color: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+        .btn-link { display: inline-block; background-color: white; color: var(--accent); text-decoration: none; font-weight: 600; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 6px; font-size: 12px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        
+        .top-btn { position: fixed; bottom: 20px; right: 20px; width: 45px; height: 45px; background-color: var(--primary-color); color: white; border: none; border-radius: 50%; font-size: 18px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); z-index: 1000; opacity: 0.9; }
+
+        /* ========================================= */
+        /* 📱 모바일 반응형 변환 (가로 768px 이하) */
+        /* ========================================= */
+        @media screen and (max-width: 768px) {
+            body { padding: 10px; }
+            .container { padding: 20px 15px; border-radius: 12px; }
+            
+            /* 테이블 헤더 숨기기 */
+            table thead { display: none; }
+            
+            /* 행(Row)을 카드(Card) 형태로 변환 */
+            table, tbody, tr, td { display: block; width: 100%; }
+            
+            tr { margin-bottom: 15px; background: #fff; border: 1px solid var(--table-border); border-radius: 10px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+            tr.date-divider td { border-top: none; } /* 모바일에선 구분선 제거 */
+            
+            td { padding: 8px 0; border-bottom: 1px solid #f3f4f6; text-align: right; position: relative; padding-left: 35%; display: flex; justify-content: flex-end; align-items: center; min-height: 24px; }
+            td:last-child { border-bottom: 0; }
+            
+            /* 셀 내용 앞에 라벨(data-label) 표시 */
+            td::before { content: attr(data-label); position: absolute; left: 0; width: 30%; text-align: left; font-weight: 600; color: var(--text-muted); font-size: 13px; }
+            
+            /* 모바일 전용 정렬 및 디자인 미세조정 */
+            td.title-cell { text-align: right; word-break: break-word; }
+            .center { text-align: right; }
+            .badge { margin-left: auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="top">
+        <h1>📊 스터디 아카이빙 대시보드</h1>
+        <div class="subtitle">일차 버튼을 클릭하면 해당 일차의 기사가 필터링됩니다. (모바일 최적화 완료)</div>
+        
+        <div class="nav-buttons"><button class="nav-btn active" id="btn-all" onclick="filterTable('all')">전체</button><button class="nav-btn" id="btn-1일차" onclick="filterTable('1일차')" title="키워드: 통화량">1일차</button><button class="nav-btn" id="btn-2일차" onclick="filterTable('2일차')" title="키워드: 인플레이션">2일차</button><button class="nav-btn" id="btn-3일차" onclick="filterTable('3일차')" title="키워드: 금리">3일차</button><button class="nav-btn" id="btn-4일차" onclick="filterTable('4일차')" title="키워드: 디플레이션">4일차</button></div>
+        <div id="keyword-banner" class="keyword-banner"><span class="keyword-label">오늘의 키워드</span><span id="keyword-text" class="keyword-text"></span></div>
+        <table><thead>
+    <tr>
+        <th style="width: 7%;">일차</th>
+        <th style="width: 13%;">날짜</th>
+        <th style="width: 55%;">기사 제목</th>
+        <th style="width: 10%;">횟수</th>
+        <th style="width: 15%;">링크</th>
+    </tr>
+    </thead><tbody id="table-body">
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/30</td>
+            <td data-label="기사 제목" class="title-cell">시중에 풀린 돈, GDP 1.5배… 넘치는 유동성, 이대로 괜찮나</td>
+            <td data-label="횟수" class="center"><span class="badge">18회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/005/0001857911?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/01</td>
+            <td data-label="기사 제목" class="title-cell">넘치는 돈, 고조되는 불안감</td>
+            <td data-label="횟수" class="center"><span class="badge">5회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/015/0005304796?sid=110" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/16</td>
+            <td data-label="기사 제목" class="title-cell">반도체 기업 예치금·주식 대기자금 몰렸다…4월 통화량 25조 증가</td>
+            <td data-label="횟수" class="center"><span class="badge">4회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/008/0005372556?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/19</td>
+            <td data-label="기사 제목" class="title-cell">주식 대기자금 비중 ‘역대 최대’…ETF 광풍에 1년새 215조 증가</td>
+            <td data-label="횟수" class="center"><span class="badge">3회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/016/0002658864?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/16</td>
+            <td data-label="기사 제목" class="title-cell">주식시장으로 몰리는 돈…가계 통화량 늘고 CMA·ETF 급증</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/018/0006307423?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/29</td>
+            <td data-label="기사 제목" class="title-cell">지난해 말 ‘시중에 풀린 돈’ GDP 1.53배…확장재정 경고등?</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/005/0001857682?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/17</td>
+            <td data-label="기사 제목" class="title-cell">4월 통화량, 1년전보다 6% 늘어… 2023년 3월 이후 최고치</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/023/0003982384?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/16</td>
+            <td data-label="기사 제목" class="title-cell">돈 풀면서 집값 잡겠다?… 시중자금은 돌고 돌아 부동산</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/021/0002798084?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/26</td>
+            <td data-label="기사 제목" class="title-cell">코스피 9000p 그늘… 만 원으로 점심 못 먹는 서민 경제</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.newsclaim.co.kr/news/articleView.html?idxno=3067676" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/16</td>
+            <td data-label="기사 제목" class="title-cell">시중 유동성 확대 지속…기업·가계 통화량 증가</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/056/0012200797?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/28</td>
+            <td data-label="기사 제목" class="title-cell">금융위기 이후 최고 환율…‘확장 재정’ 속도 조절론 확산</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.kukinews.com/article/view/kuk202606260111" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/01</td>
+            <td data-label="기사 제목" class="title-cell">[기획] ‘환율 광풍’ 1550원 뚫렸다… 17년만 처음</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/029/0003034740?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/01</td>
+            <td data-label="기사 제목" class="title-cell">[기획] 수억씩 뛰는 서울집값의 미스터리</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/050/0000108183?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/30</td>
+            <td data-label="기사 제목" class="title-cell">[환율 1500원 경고] IMF 때와 다르다 달러는 많은데 원화는 왜 약한가?</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/629/0000511610?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/25</td>
+            <td data-label="기사 제목" class="title-cell">[김학균의 쓰고 달콤한 경제] 역대 두 번째 ‘돈벼락’의 역설, 격차의 그늘</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/032/0003454401?sid=110" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/16</td>
+            <td data-label="기사 제목" class="title-cell">반도체 기업 자금 유입에 통화량 확대…M2, 25조원 증가 (머니투데이방송)</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://news.mtn.co.kr/news-detail/2026061610324981806" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/01</td>
+            <td data-label="기사 제목" class="title-cell">원/달러 환율, 5.5원 오른 1554.9원...1600원 가능성까지</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/015/0005305282?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/25</td>
+            <td data-label="기사 제목" class="title-cell">역대 두 번째 ‘돈벼락’의 역설, 격차의 그늘</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/032/0003454401?sid=110" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="1일차">
+            <td data-label="일차" class="center font-bold">1일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/29</td>
+            <td data-label="기사 제목" class="title-cell">갈수록 심해지는 신용점수 인플레이션</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/015/0005303414?sid=110" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr class="date-divider" data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/05</td>
+            <td data-label="기사 제목" class="title-cell">"서울 집값 오름세 계속된다" ... 공급 부족이 최대 변수</td>
+            <td data-label="횟수" class="center"><span class="badge">6회</span></td>
+            <td data-label="링크"><a href="https://www.mt.co.kr/estate/2026/07/05/2026070314592876596" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/27</td>
+            <td data-label="기사 제목" class="title-cell">‘칩플레이션’에… 애플 맥북-아이패드 가격 최대 300달러 인상</td>
+            <td data-label="횟수" class="center"><span class="badge">4회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/015/0005306424?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/06</td>
+            <td data-label="기사 제목" class="title-cell">"집값 상승세 안 꺾인다" 전문가 입 모은 이유...전월세까지 '비상'</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/008/0005381670?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/16</td>
+            <td data-label="기사 제목" class="title-cell">인플레이션 우려에 결국…기준금리 인상 단행한 日銀</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/024/0000106259?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/01</td>
+            <td data-label="기사 제목" class="title-cell">풍선효과 팩트였다… 비규제 경기 외곽으로 15조 몰려</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/029/0003034579?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/18</td>
+            <td data-label="기사 제목" class="title-cell">애플마저도 칩플레이션에 백기… 팀쿡 "아이폰 가격 인상 불가피"</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/009/0005695948?sid=105" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/02</td>
+            <td data-label="기사 제목" class="title-cell">씨 마른 전세 물량, “차라리 영끌 매수”…서울 전세난·집값 상승 ‘악순환’</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/028/0002812290?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/06</td>
+            <td data-label="기사 제목" class="title-cell">긴축 칼날에 실물 경제 찬바람…내 자산, 어디에 투자할까</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/243/0000100066?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/05/06</td>
+            <td data-label="기사 제목" class="title-cell">전세가율 60% 넘은 노도강 아파트…매매가격 상승 자극할까</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/018/0006274260?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/25</td>
+            <td data-label="기사 제목" class="title-cell">“금은 안전” 이젠 옛말?…1월 고점 대비 28% 떨어져</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/024/0000106455?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/05/12</td>
+            <td data-label="기사 제목" class="title-cell">반도체가 떠받친 경기… 고유가에 물가·건설은 흔들</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/029/0003026167?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/05/10</td>
+            <td data-label="기사 제목" class="title-cell">"환율 10% 오르면 물가 0.5%p '쑥'…고유가까지 이중고"</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/018/0006277371?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/72</td>
+            <td data-label="기사 제목" class="title-cell">OECD 보유세 권고에 ‘3중 규제’까지···부동산시장 ‘숨 고르기’</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="http://www.enewstoday.co.kr/news/articleView.html?idxno=2446279" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/24</td>
+            <td data-label="기사 제목" class="title-cell">반도체 호황 '불길'이 부동산으로?… 집값 상승 전망 5개월 만에 최고</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/023/0003983487?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/06</td>
+            <td data-label="기사 제목" class="title-cell">수억씩 뛰는 서울 아파트값의 미스터리, 왜?</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/050/0000108183?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/07</td>
+            <td data-label="기사 제목" class="title-cell">수출 늘어도 떨어지지 않는 환율…"3분기에는 1600원 돌파 가능성"</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/018/0006324166?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/17</td>
+            <td data-label="기사 제목" class="title-cell">日 금리인상 가세, 31년만에 최고 수준으로</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/020/0003727348?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/07</td>
+            <td data-label="기사 제목" class="title-cell">서민 살림 더 팍팍…지출 43%가 밥값·집세</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/009/0005690413?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/06</td>
+            <td data-label="기사 제목" class="title-cell">[고환율 진단] 1500원대 고환율의 습격…중소기업도 서민 밥상도 함께 흔들린다</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://thetracker.co.kr/View.aspx?No=4138270" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/06</td>
+            <td data-label="기사 제목" class="title-cell">가계대출 옥죄자 기업대출 28조 급증…지방 미분양 4만가구 '부실'</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.cstimes.com/news/articleView.html?idxno=712343" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/06</td>
+            <td data-label="기사 제목" class="title-cell">청약 흥행 될 곳만 된다…미분양관리지역 4곳 중 3곳 수도권</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.asiatime.co.kr/article/20260706500264" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/03</td>
+            <td data-label="기사 제목" class="title-cell">[사설] 두 달 연속 3%대 물가…다가오는 금리인상 충격 대비해야</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/015/0005305816?sid=110" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/23</td>
+            <td data-label="기사 제목" class="title-cell">“1년 뒤 집값 더 뛴다”… 불장·삼전닉스 성과급에 불안감 증폭</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.dt.co.kr/article/12068862?ref=naver" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/01</td>
+            <td data-label="기사 제목" class="title-cell">[윤준의 부동산수첩] 모두가 오르던 장은 끝났다</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.nbntv.kr/news/articleView.html?idxno=340119" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/06</td>
+            <td data-label="기사 제목" class="title-cell">'미분양보다 사업성'...건설사 공급 공식이 바뀌고 있다</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.asiaa.co.kr/news/articleView.html?idxno=254310" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/29</td>
+            <td data-label="기사 제목" class="title-cell">美 연준 바킨 위원 "물가 너무 높은 상황" 경고</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/001/0016163966?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/29</td>
+            <td data-label="기사 제목" class="title-cell">AI가 물가 낮춘다더니…칩플레이션, 소비자가 떠안았다</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/025/0003533752?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/10</td>
+            <td data-label="기사 제목" class="title-cell">명목성장 10% 착시…3고의 조용한 수탈 경계하라 [더롱뷰]</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/025/0003529328?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/29</td>
+            <td data-label="기사 제목" class="title-cell">‘재정 지배’와 통화 시스템의 미래</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/032/0003455004?sid=110" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/04</td>
+            <td data-label="기사 제목" class="title-cell">3대 메가프로젝트에 지방 부동산 시장 꿈틀…전문가들 "장기전"</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/003/0014046160?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/04/13</td>
+            <td data-label="기사 제목" class="title-cell">전쟁이 되살려낸 인플레이션… 빨라질 중앙은행의 긴축 시계</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/025/0003515681?sid=110" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/18</td>
+            <td data-label="기사 제목" class="title-cell">'삼전닉스 동네'인데… 평택·이천 왜 안올라?</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/009/0005695840?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/06</td>
+            <td data-label="기사 제목" class="title-cell">칩플레이션' 경고, 반도체가 서민 물가 흔든다</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.polinews.co.kr/news/articleView.html?idxno=736071" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/30</td>
+            <td data-label="기사 제목" class="title-cell">[설왕설래] 칩플레이션</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/022/0004139473?sid=110" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/07</td>
+            <td data-label="기사 제목" class="title-cell">대전 미분양 경고음 커진다…주택시장 안정화 관건</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/656/0000178465?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="2일차">
+            <td data-label="일차" class="center font-bold">2일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/01</td>
+            <td data-label="기사 제목" class="title-cell">공급만 보지마라… 돈이 돌 때 집값도 움직였다</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/005/0001852135?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr class="date-divider" data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/06</td>
+            <td data-label="기사 제목" class="title-cell">韓·美 엇갈린 금리 시계… 원화엔 ‘약’ 가계엔 ‘독’</td>
+            <td data-label="횟수" class="center"><span class="badge">11회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/005/0001859079?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/18</td>
+            <td data-label="기사 제목" class="title-cell">美 연준 금리 동결… 한국은행, 기준금리 인상 불가피</td>
+            <td data-label="횟수" class="center"><span class="badge">10회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/022/0004136554?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/08</td>
+            <td data-label="기사 제목" class="title-cell">환율•물가•집값 불안 이달 기준 금리 인상 유력</td>
+            <td data-label="횟수" class="center"><span class="badge">6회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/009/0005704807?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/06</td>
+            <td data-label="기사 제목" class="title-cell">금리 인상기 내 돈 아끼는 은행 이용법…“예금 짧게, 대출 길게”</td>
+            <td data-label="횟수" class="center"><span class="badge">3회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/028/0002812778?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/03</td>
+            <td data-label="기사 제목" class="title-cell">워시 연준의장 “美 물가 너무 높다”… 금리인상 재차 시사</td>
+            <td data-label="횟수" class="center"><span class="badge">3회</span></td>
+            <td data-label="링크"><a href="https://www.donga.com/news/Economy/article/all/20260702/134227227/2" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/08</td>
+            <td data-label="기사 제목" class="title-cell">역대급 경상수지 흑자→성장률·고환율 자극→금리인상</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/016/0002667323?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/18</td>
+            <td data-label="기사 제목" class="title-cell">美연준 금리 ‘매파적 동결’…韓 내달 인상 전망(종합)</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/658/0000147132?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/02</td>
+            <td data-label="기사 제목" class="title-cell">치솟는 환율, 금리 올리면 진정?…이번엔 글쎄</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/018/0006320377?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/24</td>
+            <td data-label="기사 제목" class="title-cell">한국은행 “MSCI 선진국 편입 불발…외환·자본시장 선진화 노력”</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.straightnews.co.kr/news/articleView.html?idxno=305465" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/03</td>
+            <td data-label="기사 제목" class="title-cell">美고용둔화에 금리인상 기대 식어…국채금리 하락·금값 반등</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/277/0005785179?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/02</td>
+            <td data-label="기사 제목" class="title-cell">유가 급락에도 물가 안떨어져… 美·유럽, 금리 방향 놓고 고심</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/009/0005702058?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/30</td>
+            <td data-label="기사 제목" class="title-cell">언제쯤 美 금리 낮아질까…물가·고용·성장 ‘동결’ 신호</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/024/0000106558?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/18</td>
+            <td data-label="기사 제목" class="title-cell">美연준 '매파 전환'…한국은행, 7월 금리인상 명분 커졌다</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.newspim.com/news/view/20260618000345" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/05</td>
+            <td data-label="기사 제목" class="title-cell">美는 멈추고 韓은 올리나…엇갈린 금리 시계, 원화엔 ‘약’ 가계엔 ‘독’</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/005/0001858922?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/07</td>
+            <td data-label="기사 제목" class="title-cell">미 금리 인상 무게...달러화 '고공행진'</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/052/0002375714?sid=104" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/08</td>
+            <td data-label="기사 제목" class="title-cell">롤러코스피에 멀미 난다...'연3%이상 수익' 정기예금 올라탈까</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/032/0003456951?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/02</td>
+            <td data-label="기사 제목" class="title-cell">"물가 너무 높다"는 美연준 의장⋯통화정책 예단은 경계</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.etoday.co.kr/news/view/2599391" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="3일차">
+            <td data-label="일차" class="center font-bold">3일차</td>
+            <td data-label="날짜" class="center text-muted">25/03/21</td>
+            <td data-label="기사 제목" class="title-cell">中, 금리 5개월 연속 동결…각국 '관망 모드'</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/015/0005108721?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr class="date-divider" data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/16</td>
+            <td data-label="기사 제목" class="title-cell">일본, 31년만에 기준금리 1%…국채매입 내년 4월 다시 늘린다</td>
+            <td data-label="횟수" class="center"><span class="badge">3회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/008/0005372588?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">19/06/04</td>
+            <td data-label="기사 제목" class="title-cell">투자감소 악순환… `디플레 소용돌이` 빠진 한국</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/029/0002531667?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">24/01/12</td>
+            <td data-label="기사 제목" class="title-cell">中 물가 하락세 석달째… 커지는 디플레이션 공포</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/277/0005366311?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/29</td>
+            <td data-label="기사 제목" class="title-cell">돈 빌리지 않는 기업·가계…中, 일본식 '대차대조표 불황' 빠졌다</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/008/0005378517?sid=104" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/04/27</td>
+            <td data-label="기사 제목" class="title-cell">“이자 내렸다더니 커피 한 잔 값?”… 0.01%p ‘찔끔 인하’에 대출자 허탈</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://www.dt.co.kr/article/12059584?ref=naver" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">260625</td>
+            <td data-label="기사 제목" class="title-cell">[fn광장] 한국은행 2008년의 교훈</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/014/0005539851?sid=110" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/10</td>
+            <td data-label="기사 제목" class="title-cell">4%대로 올라선 美 소비자물가 …'3년 디플레' 中도 생산물가 들썩</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/009/0005692208?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/16</td>
+            <td data-label="기사 제목" class="title-cell">엔화값 충격 없어 시장은 안도 … 日, 하반기 또 금리인상 시사</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/009/0005694718?sid=104" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">14/11/25</td>
+            <td data-label="기사 제목" class="title-cell">“금리 내려 디플레 대응을" KDI마저 한은 공개 압박</td>
+            <td data-label="횟수" class="center"><span class="badge">2회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/011/0002604450?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/21</td>
+            <td data-label="기사 제목" class="title-cell">가계대출 비상 걸린 인뱅·지방銀…마통 한도만 37조</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/008/0005374715?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">25/12/02</td>
+            <td data-label="기사 제목" class="title-cell">"물가 하락이 더 위험"...美 경제학자들, 디플레이션 경고</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.g-enews.com/view.php?ud=202512011752235514fbbec65dfb_1" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">14/12/11</td>
+            <td data-label="기사 제목" class="title-cell">한국은행 총재 이주열 “디플레 아니다…금리 2% 동결”</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/032/0002552613?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/09</td>
+            <td data-label="기사 제목" class="title-cell">한은 "물가 오름세, 강한 성장 고려하면 기준금리 인상 필요"</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/023/0003986642?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">24/02/12</td>
+            <td data-label="기사 제목" class="title-cell">임금 올리는 日, '인구 감소' 한계 뚫고 디플레이션 벗어나나</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/011/0004298545?sid=104" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">25/11/11</td>
+            <td data-label="기사 제목" class="title-cell">중국 물가 '추락'… 공식 통계보다 심각한 디플레이션 현실화</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.ebn.co.kr/news/articleView.html?idxno=1686140" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">25/09/11</td>
+            <td data-label="기사 제목" class="title-cell">세계는 인플레 걱정하는데, 아시아는 디플레이션 공포?</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/023/0003928655?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/18</td>
+            <td data-label="기사 제목" class="title-cell">美 ‘매파적 동결’에 한은도 동반 긴축 유턴?… 한미 금리차 축소 주목</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/014/0005536968?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/03/25</td>
+            <td data-label="기사 제목" class="title-cell">물가·임금·부동산 줄줄이 상승… “日 디플레 시대 끝났다”</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/023/0003966616?sid=104" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">23/07/12</td>
+            <td data-label="기사 제목" class="title-cell">中, 디플레 수렁… 생산자물가 상승률 9개월째 마이너스</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/023/0003775032?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/05/28</td>
+            <td data-label="기사 제목" class="title-cell">'매파적 동결' 후 금리 인상 강력 시사…올해 성장률 2.6%·물가 2.7% 전망 상향(종합)</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/277/0005768858?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/29</td>
+            <td data-label="기사 제목" class="title-cell">중국은 올 하반기 디플레 우려 벗어날까…한은 북경사무소 "물가동향 주목" (경향신문)</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.khan.co.kr/article/202606291800011" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/01/30</td>
+            <td data-label="기사 제목" class="title-cell">中, 경제성장률 5% 달성에도 ‘기업 4곳 중 1곳 적자’...디플레이션 공포 확산</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.g-enews.com/view.php?ud=2026013010020272330c8c1c064d_1" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/07</td>
+            <td data-label="기사 제목" class="title-cell">부동산 거품 붕괴는 수출 주도형 경제의 숙명일까? 경상흑자의 역설</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/665/0000007700?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">23/12/15</td>
+            <td data-label="기사 제목" class="title-cell">긴축 드디어 끝낸다…파월, 금리인하 시사</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/025/0003328615?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">15/01/15</td>
+            <td data-label="기사 제목" class="title-cell">[시론] 저물가 디플레이션 해법 찾아야</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/029/0002263850?sid=102" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/02</td>
+            <td data-label="기사 제목" class="title-cell">삼전닉스 ETF·스페이스X 자금유입량이 말해준다…증시, 완전 과열이다</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/277/0005784387?sid=104" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/01</td>
+            <td data-label="기사 제목" class="title-cell">700억달러 넘게 엔화 방어했지만…1달러=162엔, 日정부 또 개입 경고</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/003/0014038462?sid=104" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">260709</td>
+            <td data-label="기사 제목" class="title-cell">Fed, 금리 인상 가능성 열었다…AI·중동·관세가 물가 압박</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/277/0005787449?sid=104" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/03</td>
+            <td data-label="기사 제목" class="title-cell">두달 연속 3%대 물가, 하반기엔 고환율 덮친다</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/018/0006321427?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">24/09/21</td>
+            <td data-label="기사 제목" class="title-cell">美는 인하 中 - 日은 동결... 금리 '각자 도생의 길'로</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.donga.com/news/Economy/article/all/20240921/130070724/2" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/09</td>
+            <td data-label="기사 제목" class="title-cell">집값·가계대출 다시 들썩…한은 “기준금리 인상 필요”</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://www.sisaon.co.kr/news/articleView.html?idxno=202571" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/06/24</td>
+            <td data-label="기사 제목" class="title-cell">외국인 매도·美 금리 인상 가능성에 ‘高환율’</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/023/0003983658?sid=101" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/03/25</td>
+            <td data-label="기사 제목" class="title-cell">구로다 일본은행 전 총재 “디플레 끝”…금리 인상 필요성 공개 제기</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/016/0002618997?sid=104" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        
+        <tr  data-day="4일차">
+            <td data-label="일차" class="center font-bold">4일차</td>
+            <td data-label="날짜" class="center text-muted">26/07/09</td>
+            <td data-label="기사 제목" class="title-cell">‘워시 체제’ 첫 FOMC 의사록 “일부위원, 금리인상 검토 언급”</td>
+            <td data-label="횟수" class="center"><span class="badge">1회</span></td>
+            <td data-label="링크"><a href="https://n.news.naver.com/mnews/article/016/0002668013?sid=104" target="_blank" class="btn-link">🔗 기사 보기</a></td>
+        </tr>
+        </tbody></table>
+    </div>
+    <button class="top-btn" onclick="scrollToTop()" title="위로">⬆</button>
+
+    <script>
+        const keywordsData = {"일차": "키워드", "1일차": "통화량", "2일차": "인플레이션", "3일차": "금리", "4일차": "디플레이션", "5일차": "물가(CPI,PPI)"};
+        function filterTable(selectedDay) {
+            const buttons = document.querySelectorAll('.nav-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            document.getElementById('btn-' + selectedDay).classList.add('active');
+
+            const keywordBanner = document.getElementById('keyword-banner');
+            const keywordText = document.getElementById('keyword-text');
+            if (selectedDay === 'all') {
+                keywordBanner.style.display = 'none';
+            } else {
+                if (keywordsData[selectedDay] && keywordsData[selectedDay] !== '키워드 없음') {
+                    keywordText.innerText = keywordsData[selectedDay];
+                    keywordBanner.style.display = 'flex';
+                } else { keywordBanner.style.display = 'none'; }
+            }
+
+            const rows = document.querySelectorAll('#table-body tr');
+            let previousDay = null;
+            rows.forEach(row => {
+                const rowDay = row.getAttribute('data-day');
+                if (selectedDay === 'all' || rowDay === selectedDay) {
+                    row.style.display = '';
+                    if (selectedDay !== 'all') { row.classList.remove('date-divider'); }
+                    else {
+                        if (previousDay !== null && previousDay !== rowDay) { row.classList.add('date-divider'); }
+                        previousDay = rowDay;
+                    }
+                } else { row.style.display = 'none'; }
+            });
+        }
+        function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    </script>
+</body>
+</html>
