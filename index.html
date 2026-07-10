@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>카카오톡 뉴스 아카이브</title>
+    <title>🐭 골쥐네 리치마우스 왕초보 7월</title>
     <style>
         :root { --primary-color: #1f2937; --bg-color: #f3f4f6; --table-border: #e5e7eb; --text-main: #111827; --text-muted: #6b7280; --accent: #2563eb; }
         html { scroll-behavior: smooth; }
+        /* 💡 초기 상태를 view-all 로 설정 */
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 20px; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 1200px; background: #ffffff; padding: 30px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; }
         
         h1 { color: var(--primary-color); font-size: 24px; margin: 0 0 10px 0; }
         .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 25px; border-bottom: 1px solid var(--table-border); padding-bottom: 20px; line-height: 1.5; }
         
-        /* 버튼 영역 가로 스크롤 가능하도록 수정 */
         .nav-buttons { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 8px; margin-bottom: 20px; padding-bottom: 10px; -webkit-overflow-scrolling: touch; }
         .nav-buttons::-webkit-scrollbar { height: 6px; }
         .nav-buttons::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -25,53 +25,73 @@
         .keyword-label { background-color: var(--accent); color: white; padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: bold; white-space: nowrap; }
         .keyword-text { font-weight: 600; font-size: 15px; line-height: 1.4; word-break: keep-all; }
 
-        /* 데스크탑 기본 테이블 셋팅 */
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         th { background-color: #f9fafb; color: var(--text-muted); font-weight: 600; padding: 14px 10px; font-size: 14px; border-bottom: 2px solid var(--table-border); position: sticky; top: 0; z-index: 10; text-align: center; }
-        td { padding: 16px 10px; border-bottom: 1px solid var(--table-border); font-size: 14px; vertical-align: middle; }
+        td { padding: 16px 10px; border-bottom: 1px solid var(--table-border); font-size: 14px; vertical-align: middle; word-break: keep-all; overflow-wrap: break-word; }
         tr.date-divider td { border-top: 3px solid #cbd5e1; }
         
         .center { text-align: center; } 
         .font-bold { font-weight: 600; }
-        .title-cell { font-weight: 500; line-height: 1.5; color: #1e293b; word-break: keep-all; }
+        .title-cell { font-weight: 500; line-height: 1.5; color: #1e293b; }
         .badge { background-color: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; }
         .btn-link { display: inline-block; background-color: white; color: var(--accent); text-decoration: none; font-weight: 600; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 6px; font-size: 12px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         
         .top-btn { position: fixed; bottom: 20px; right: 20px; width: 45px; height: 45px; background-color: var(--primary-color); color: white; border: none; border-radius: 50%; font-size: 18px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); z-index: 1000; opacity: 0.9; }
 
         /* ========================================= */
-        /* 📱 모바일 반응형 변환 (가로 768px 이하) */
+        /* 📱 모바일 반응형 완벽 최적화 (가로 768px 이하) */
         /* ========================================= */
         @media screen and (max-width: 768px) {
             body { padding: 10px; }
             .container { padding: 20px 15px; border-radius: 12px; }
             
-            /* 테이블 헤더 숨기기 */
             table thead { display: none; }
+            table, tbody, tr, td { display: block; width: 100%; box-sizing: border-box; }
             
-            /* 행(Row)을 카드(Card) 형태로 변환 */
-            table, tbody, tr, td { display: block; width: 100%; }
+            tr { margin-bottom: 15px; background: #fff; border: 1px solid var(--table-border); border-radius: 10px; padding: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.04); overflow: hidden; }
+            tr.date-divider td { border-top: none; }
             
-            tr { margin-bottom: 15px; background: #fff; border: 1px solid var(--table-border); border-radius: 10px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
-            tr.date-divider td { border-top: none; } /* 모바일에선 구분선 제거 */
+            /* 💡 수정 1: 특정 일차를 볼 때만(view-single) 일차 라벨 숨김 */
+            body.view-single td[data-label="일차"] { display: none; }
             
-            td { padding: 8px 0; border-bottom: 1px solid #f3f4f6; text-align: right; position: relative; padding-left: 35%; display: flex; justify-content: flex-end; align-items: center; min-height: 24px; }
-            td:last-child { border-bottom: 0; }
+            td.title-cell { 
+                padding: 16px 15px 12px 15px; 
+                border-bottom: 1px solid #f3f4f6; 
+                font-size: 16px; 
+                font-weight: 600;
+                color: #111827;
+            }
+            td.title-cell::before { display: none; }
             
-            /* 셀 내용 앞에 라벨(data-label) 표시 */
-            td::before { content: attr(data-label); position: absolute; left: 0; width: 30%; text-align: left; font-weight: 600; color: var(--text-muted); font-size: 13px; }
+            td { 
+                display: flex; 
+                justify-content: flex-start; 
+                align-items: center; 
+                padding: 10px 15px; 
+                border-bottom: 1px solid #f9fafb; 
+                text-align: left; 
+            }
+            td:last-child { border-bottom: 0; padding-bottom: 15px; }
             
-            /* 모바일 전용 정렬 및 디자인 미세조정 */
-            td.title-cell { text-align: right; word-break: break-word; }
-            .center { text-align: right; }
-            .badge { margin-left: auto; }
+            td::before { 
+                content: attr(data-label); 
+                font-weight: 600; 
+                color: var(--text-muted); 
+                font-size: 13px; 
+                width: 45px; 
+                flex-shrink: 0; 
+                margin-right: 10px; 
+            }
+            
+            .center { text-align: left; }
+            .badge { margin-left: 0; } 
         }
     </style>
 </head>
-<body>
+<body class="view-all">
     <div class="container" id="top">
-        <h1>📊 스터디 아카이빙 대시보드</h1>
-        <div class="subtitle">일차 버튼을 클릭하면 해당 일차의 기사가 필터링됩니다. (모바일 최적화 완료)</div>
+        <h1>🐭 골쥐네 리치마우스 왕초보 7월</h1>
+        <div class="subtitle">일차 버튼을 클릭하면 해당 일차의 기사가 필터링됩니다.</div>
         
         <div class="nav-buttons"><button class="nav-btn active" id="btn-all" onclick="filterTable('all')">전체</button><button class="nav-btn" id="btn-1일차" onclick="filterTable('1일차')" title="키워드: 통화량">1일차</button><button class="nav-btn" id="btn-2일차" onclick="filterTable('2일차')" title="키워드: 인플레이션">2일차</button><button class="nav-btn" id="btn-3일차" onclick="filterTable('3일차')" title="키워드: 금리">3일차</button><button class="nav-btn" id="btn-4일차" onclick="filterTable('4일차')" title="키워드: 디플레이션">4일차</button></div>
         <div id="keyword-banner" class="keyword-banner"><span class="keyword-label">오늘의 키워드</span><span id="keyword-text" class="keyword-text"></span></div>
@@ -945,10 +965,20 @@
 
     <script>
         const keywordsData = {"일차": "키워드", "1일차": "통화량", "2일차": "인플레이션", "3일차": "금리", "4일차": "디플레이션", "5일차": "물가(CPI,PPI)"};
+        
         function filterTable(selectedDay) {
             const buttons = document.querySelectorAll('.nav-btn');
             buttons.forEach(btn => btn.classList.remove('active'));
             document.getElementById('btn-' + selectedDay).classList.add('active');
+
+            // 💡 바디 태그의 클래스를 변경하여 모바일 '일차' 표시 여부 제어
+            if (selectedDay === 'all') {
+                document.body.classList.add('view-all');
+                document.body.classList.remove('view-single');
+            } else {
+                document.body.classList.add('view-single');
+                document.body.classList.remove('view-all');
+            }
 
             const keywordBanner = document.getElementById('keyword-banner');
             const keywordText = document.getElementById('keyword-text');
